@@ -11,7 +11,7 @@ Also note that the commands don't always line up perfectly...there may be a spli
 
 ## Hardware Setup
 - **Interface**: Universal Audio Apollo 8
-- **Main Monitors**: Connected via analog moitor outputs (standard setup)
+- **Main Monitors**: Connected via analog monitor outputs (standard setup)
 - **Alt Monitors**: Connected via S/PDIF (coax) output → digital streamer → tube amp stereo hi-fi system
 
 ## Software Setup
