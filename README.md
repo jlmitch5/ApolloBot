@@ -1,18 +1,75 @@
 # ApolloBot - UAD Console Alt Monitor Automation
 
 ## Project Overview
-ApolloBot was created to automate my monitor switching workflow for my Universal Audio Apollo 8 interface.
+ApolloBot automates alternate monitoring for my Universal Audio Apollo 8. The secondary speaker system is reached through the WiiM Ultra over S/PDIF, rather than through the Apollo's analog ALT 1 outputs. Because Console does not provide the routing this setup needs, ApolloBot syncs the front-panel ALT state with the Apollo's S/PDIF output: it sends the monitor mix for the digital alternate system and sends silent Cue 1 for the main-monitor state.
 
-I have an alternative monitoring setups that isn't possible to set up using the standard analog outputs (3/4) set when you add an alt speaker in console settings, but is actually connected to a secondary amp via digital coax (S/PDIF).  Since there is no configuration for a setup like this within the console settings, we have to intercept the alt monitor signal and set the cue 1 output to send the mix accordingly.
-
-Note this does mean that outputs 3/4 and cue 1 (and headphone 1) are not usable in this setup.  This is an acceptable trade-off in my case.  If I need to use either, I can stop the watcher and disable the alt count in the settings.
+Cue 1 is reserved as the silent source for the digital alternate-monitor path. The Apollo's analog ALT 1 outputs are not connected. Both Apollo headphone outputs are assigned to C2 (Cue 2) and carry the monitor mix.
 
 Also note that the commands don't always line up perfectly...there may be a split second where both monitors are playing at the same time, or a split-second of silence when you click the alt button.  Again, for me, this is within acceptable bounds for my use case.
 
 ## Hardware Setup
-- **Interface**: Universal Audio Apollo 8
-- **Main Monitors**: Connected via analog monitor outputs (standard setup)
-- **Alt Monitors**: Connected via S/PDIF (coax) output → digital streamer → tube amp stereo hi-fi system
+
+The setup has two audio hubs: the **UAD Apollo 8**, connected to the MacBook Pro over Thunderbolt, and the **WiiM Ultra**, which connects the turntable and cassette deck to a separate analog amplifier and speaker system. The Apollo and WiiM also exchange digital audio over S/PDIF.
+
+```mermaid
+flowchart LR
+  subgraph Computer["Computer and Thunderbolt connection"]
+    Apollo["UAD Apollo 8<br/>Thunderbolt 2 option card"]
+    Adapter["Thunderbolt 2-to-3 adapter"]
+    Dock["CalDigit Thunderbolt TS3 dock"]
+    Mac["MacBook Pro"]
+    Apollo -->|Thunderbolt 2| Adapter -->|Thunderbolt 3| Dock -->|Thunderbolt 3| Mac
+    Mac -. "System audio to Console Virtual 1/2" .-> Apollo
+  end
+
+  subgraph Digital["Digital link between the hubs"]
+    ApolloOut["Apollo S/PDIF OUT<br/>coax"]
+    Converter["Coax S/PDIF to optical converter"]
+    WiiMOptical["WiiM Ultra optical IN"]
+    WiiMCoax["WiiM Ultra coax OUT"]
+    ApolloIn["Apollo S/PDIF IN<br/>coax"]
+    ApolloOut --> Converter --> WiiMOptical
+    WiiMCoax --> ApolloIn
+  end
+
+  subgraph WiiM["WiiM Ultra inputs and analog playback"]
+    Turntable["Rega Planar 3 RS"] -->|Phono IN<br/>MM phono stage| WiiMHub["WiiM Ultra"]
+    Cassette["Denon DR-M2 cassette deck"] -->|Line IN| WiiMHub
+    WiiMHub -->|Line OUT| Sys["Schiit SYS<br/>pre-volume control"]
+    Sys --> Amp["DIY EL84 push-pull<br/>power amplifier"]
+    Amp --> Switch["Speaker switch"]
+    Switch -->|A| Speakers["Passive MartinLogan LX16 speakers"]
+    Switch -->|B| Load["Dummy resistive load"]
+    Amp --> Divider["Divide-down resistor network"] --> Headphones["Headphone input"]
+  end
+
+  subgraph ApolloMonitor["Apollo monitoring outputs"]
+    MonitorOut["Monitor outputs L/R"] --> Focals["Powered Focal Shape 65 monitors"]
+    Cue2["C2 / Cue 2<br/>monitor mix"] --> HP1["Headphone output 1"]
+    Cue2 --> HP2["Headphone output 2"]
+  end
+
+  Apollo --> ApolloOut
+  ApolloIn --> Apollo
+  WiiMOptical --> WiiMHub
+  Apollo --> MonitorOut
+```
+
+### Signal paths
+
+| Path | Connection and purpose |
+| --- | --- |
+| Computer to interface | The Apollo 8's Thunderbolt 2 option card connects through a Thunderbolt 2-to-3 adapter to the CalDigit TS3 dock, which connects to the MacBook Pro over Thunderbolt 3. System audio is sent to Console's Virtual 1/2 tracks. |
+| Turntable to speakers | The Rega Planar 3 RS connects to the WiiM's Phono input; the WiiM provides the MM phono preamp stage. Its Line Out feeds the Schiit SYS, used as a pre-volume control, then the DIY EL84 push-pull power amp and the speaker switch. Switch position A connects the passive MartinLogan LX16 speakers. |
+| Cassette to speakers | The Denon DR-M2 connects to a WiiM Line input and follows the same WiiM Line Out → Schiit SYS → power amp path. |
+| Apollo to WiiM | Apollo S/PDIF coax output passes through a coax-to-optical converter into the WiiM's optical input. This brings Apollo audio into the WiiM and the separate amplifier system. |
+| WiiM to Apollo | The WiiM's coax output connects to the Apollo's S/PDIF input. |
+| Apollo main monitors | Apollo Monitor Out L/R connect to the powered Focal Shape 65 monitors. Both Apollo headphone outputs use C2 (Cue 2) with the monitor mix. |
+| Headphone listening from the power amp | A divide-down resistor network feeds the headphone input from the power amp output. With the speakers disconnected, switch position B connects the dummy resistive load so the amplifier still has a load. |
+
+### Digital alternate-monitor behavior
+
+The Apollo's front-panel **ALT** button is the control for switching the digital WiiM/amp system. ApolloBot follows the ALT state and changes the Apollo's S/PDIF output source: ALT selects the monitor mix, while the main-monitor state selects Cue 1, which is configured to carry silence. This makes Cue 1 the silent state for the digital alternate path. The Apollo's analog ALT 1 outputs remain unused; the actual alternate speakers are driven by the WiiM and the separate power amp.
 
 ## Software Setup
 - **macOS**: 15.6.1 (Sequoia)
