@@ -765,12 +765,53 @@ class ApolloBot:
             self.socket.close()
         self.connected = False
 
+
+def _print_diagram_block(title, rows) -> None:
+    """Print rows inside a box sized to fit their text."""
+    width = max(len(title) + 1, max(len(row) for row in rows))
+    top_fill = "─" * (width - len(title) - 1)
+    print(f"┌─ {title} {top_fill}┐")
+    for row in rows:
+        print(f"│ {row.ljust(width)} │")
+    print(f"└{'─' * (width + 2)}┘")
+
+
+def print_setup_diagram() -> None:
+    """Print a concise, block-style terminal overview of the audio setup."""
+    print("John's Audio Setup")
+    print()
+    _print_diagram_block("COMPUTER / APOLLO / UAD CONSOLE", [
+        "[Apollo 8 TB2] → [TB2/3 adapter] → [CalDigit TS3] --TB3--> [MacBook Pro]",
+        "[Mac system audio] → [Console Virtual 1/2]",
+        "[WiiM coax OUT] → [Apollo S/PDIF IN] → [Console S/PDIF input]",
+        "[Monitor mix] → [Apollo Monitor Out] → [Focal Shape 65]",
+        "[C2 monitor mix] → [Apollo headphone outputs 1 + 2]",
+        "[ALT button] → [ApolloBot] → [S/PDIF source]",
+        "ALT: monitor mix | MAIN: silent Cue 1",
+        "[Apollo S/PDIF OUT] → [converter] → [WiiM optical IN]",
+    ])
+    print()
+    _print_diagram_block("WiiM ULTRA / ANALOG INPUTS", [
+        "[Rega Planar 3 RS] --Phono/MM--> [WiiM Ultra]",
+        "[Denon DR-M2] --------Line-----> [WiiM Ultra]",
+        "[WiiM Line Out] → [Schiit SYS] → [EL84 power amp]",
+    ])
+    print()
+    _print_diagram_block("SPEAKERS / HEADPHONES", [
+        "[EL84 amp] → [speaker switch]",
+        "    |-- A → [MartinLogan LX16]",
+        "    `-- B → [dummy resistive load] (speaker mute / headphone-only)",
+        "[EL84 amp] → [resistor divider] → [headphone input]",
+    ])
+
+
 def main():
     parser = argparse.ArgumentParser(
         description='ApolloBot - UAD Console Alt Monitor Automation',
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog='''
 Commands:
+  diagram  Print John's Audio Setup
   alt      Switch to alt monitors (S/PDIF output)
   main     Switch to main monitors (analog outputs)  
   toggle   Toggle between main and alt monitors
@@ -782,8 +823,8 @@ Commands:
   stop --launchd  Stop the watcher through the installed macOS LaunchDaemon
   log      Show recent daemon log entries
         ''')
-    parser.add_argument('action', choices=['alt', 'main', 'toggle', 'status', 'start', 'run', 'stop', 'log'],
-                       help='Monitor action to perform')
+    parser.add_argument('action', choices=['diagram', 'alt', 'main', 'toggle', 'status', 'start', 'run', 'stop', 'log'],
+                       help='Command to run')
     parser.add_argument('--host', default='127.0.0.1', help='UAD Console host (default: 127.0.0.1)')
     parser.add_argument('--port', type=int, default=4710, help='UAD Console port (default: 4710)')
     parser.add_argument(
@@ -795,6 +836,10 @@ Commands:
     args = parser.parse_args()
     if args.launchd and args.action not in ('start', 'stop'):
         parser.error('--launchd can only be used with the start or stop action')
+
+    if args.action == 'diagram':
+        print_setup_diagram()
+        return
 
     bot = ApolloBot(args.host, args.port)
 
