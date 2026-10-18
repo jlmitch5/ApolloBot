@@ -19,7 +19,6 @@ flowchart LR
     Dock["CalDigit Thunderbolt TS3 dock"]
     Mac["MacBook Pro"]
     Apollo -->|Thunderbolt 2| Adapter -->|Thunderbolt 3| Dock -->|Thunderbolt 3| Mac
-    Mac -. "System audio to Console Virtual 1/2" .-> Apollo
   end
 
   subgraph Digital["Digital link between the hubs"]
@@ -37,22 +36,29 @@ flowchart LR
     Cassette["Denon DR-M2 cassette deck"] -->|Line IN| WiiMHub
     WiiMHub -->|Line OUT| Sys["Schiit SYS<br/>pre-volume control"]
     Sys --> Amp["DIY EL84 push-pull<br/>power amplifier"]
-    Amp --> Switch["Speaker switch"]
-    Switch -->|A| Speakers["Passive MartinLogan LX16 speakers"]
-    Switch -->|B| Load["Dummy resistive load"]
+    Amp --> Switch["Speaker selector / mute"]
+    Switch -->|A: speakers on| Speakers["Passive MartinLogan LX16 speakers"]
+    Switch -->|B: speaker mute / headphone-only| Load["Dummy resistive load<br/>keeps power amp loaded"]
     Amp --> Divider["Divide-down resistor network"] --> Headphones["Headphone input"]
   end
 
-  subgraph ApolloMonitor["Apollo monitoring outputs"]
-    MonitorOut["Monitor outputs L/R"] --> Focals["Powered Focal Shape 65 monitors"]
-    Cue2["C2 / Cue 2<br/>monitor mix"] --> HP1["Headphone output 1"]
+  subgraph ApolloConsole["Apollo 8 and UAD Console routing"]
+    Virtual12["Console input: Virtual 1/2"] --> Console["UAD Console"]
+    ApolloIn -->|digital input| SpdifChannel["Console input: S/PDIF"] --> Console
+    Console --> MonitorMix["Monitor mix"]
+    MonitorMix --> MonitorOut["Apollo monitor outputs L/R"] --> Focals["Powered Focal Shape 65 monitors"]
+    MonitorMix --> Cue2["C2 / Cue 2<br/>monitor mix"]
+    Cue2 --> HP1["Headphone output 1"]
     Cue2 --> HP2["Headphone output 2"]
+    MonitorMix -->|ALT mode| SpdifSource["S/PDIF OUT source"]
+    Cue1["Cue 1<br/>silent in main mode"] -->|main-monitor mode| SpdifSource
+    AltButton["Apollo front-panel ALT state"] -.-> ApolloBot["ApolloBot watcher"]
+    ApolloBot -. "selects Mix or silent Cue 1" .-> SpdifSource
+    SpdifSource --> ApolloOut
   end
 
-  Apollo --> ApolloOut
-  ApolloIn --> Apollo
+  Mac -. "System audio" .-> Virtual12
   WiiMOptical --> WiiMHub
-  Apollo --> MonitorOut
 ```
 
 ### Signal paths
@@ -62,10 +68,10 @@ flowchart LR
 | Computer to interface | The Apollo 8's Thunderbolt 2 option card connects through a Thunderbolt 2-to-3 adapter to the CalDigit TS3 dock, which connects to the MacBook Pro over Thunderbolt 3. System audio is sent to Console's Virtual 1/2 tracks. |
 | Turntable to speakers | The Rega Planar 3 RS connects to the WiiM's Phono input; the WiiM provides the MM phono preamp stage. Its Line Out feeds the Schiit SYS, used as a pre-volume control, then the DIY EL84 push-pull power amp and the speaker switch. Switch position A connects the passive MartinLogan LX16 speakers. |
 | Cassette to speakers | The Denon DR-M2 connects to a WiiM Line input and follows the same WiiM Line Out → Schiit SYS → power amp path. |
-| Apollo to WiiM | Apollo S/PDIF coax output passes through a coax-to-optical converter into the WiiM's optical input. This brings Apollo audio into the WiiM and the separate amplifier system. |
-| WiiM to Apollo | The WiiM's coax output connects to the Apollo's S/PDIF input. |
-| Apollo main monitors | Apollo Monitor Out L/R connect to the powered Focal Shape 65 monitors. Both Apollo headphone outputs use C2 (Cue 2) with the monitor mix. |
-| Headphone listening from the power amp | A divide-down resistor network feeds the headphone input from the power amp output. With the speakers disconnected, switch position B connects the dummy resistive load so the amplifier still has a load. |
+| Apollo/Console inputs | WiiM coax output enters the Apollo's S/PDIF input and appears as the S/PDIF input channel in UAD Console. Mac system audio enters Console through Virtual 1/2. |
+| Apollo to WiiM | Apollo S/PDIF coax output passes through a coax-to-optical converter into the WiiM's optical input. ApolloBot selects the monitor mix for ALT mode and silent Cue 1 for main-monitor mode. |
+| Apollo monitoring | UAD Console's monitor mix goes to Apollo Monitor Out L/R and the powered Focal Shape 65 monitors. Both Apollo headphone outputs use C2 (Cue 2) with the monitor mix. |
+| Headphone-only / speaker-mute mode | Switch position B disconnects the MartinLogan speakers and connects a dummy resistive load to the power amp, so the amp remains loaded while the speakers are muted. The divide-down network separately feeds the headphone input from the amp output; the dummy load is not in the headphone signal path. |
 
 ### Digital alternate-monitor behavior
 
