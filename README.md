@@ -117,6 +117,7 @@ apollobot toggle   # Toggle between setups
 apollobot status   # Show current state
 apollobot start    # Start background watcher daemon
 apollobot start --launchd  # Start the installed macOS LaunchDaemon
+apollobot run      # Run in foreground and retry until UAD Console is available
 apollobot stop     # Stop background watcher
 apollobot stop --launchd  # Stop the installed macOS LaunchDaemon
 apollobot log      # Show daemon activity
