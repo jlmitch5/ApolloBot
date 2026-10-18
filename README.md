@@ -86,6 +86,26 @@ apollobot start
 ```
 etc.
 
+### Start automatically at computer startup (macOS)
+
+The LaunchDaemon starts ApolloBot during system startup, under the account that installs it. It runs in the foreground so launchd can supervise it. If UAD Console is not listening on port 4710 yet, ApolloBot waits and retries every 15 seconds.
+
+From the repository directory, run the installer as your normal account (it will ask for administrator authorization when installing the system job):
+
+```bash
+python3 install_launchd.py
+```
+
+If you started the watcher manually, stop it first with `python3 apollobot.py stop`.
+
+The installer reads your account, home directory, current checkout path, and active Python executable, then generates and installs the LaunchDaemon plist. This lets the repository work from another username or checkout location without editing a plist by hand. Use `python3 install_launchd.py --dry-run` to inspect the generated plist without installing it.
+
+To update or reinstall the job, run the installer again. It unloads an existing copy before replacing it. Check its state with `apollobot status`.
+
+After installation, `apollobot start --launchd` loads the installed plist if the service is not currently loaded, starts it if it is loaded but stopped, and reports its PID if it is already running. It does not force-restart a live watcher, and it works while UAD Console is still starting.
+
+The LaunchDaemon writes output to `~/.apollobot-launchd.log` and errors to `~/.apollobot-launchd-error.log`. Run `apollobot stop --launchd` to stop and unload it for the current boot; its plist remains installed so it will start automatically at the next system startup. To remove automatic startup, stop it and delete `/Library/LaunchDaemons/com.apollobot.watcher.plist`.
+
 ### Usage
 
 Here are all the commands that are implemented:
@@ -96,8 +116,27 @@ apollobot main     # Switch to main monitors
 apollobot toggle   # Toggle between setups
 apollobot status   # Show current state
 apollobot start    # Start background watcher daemon
+apollobot start --launchd  # Start the installed macOS LaunchDaemon
+apollobot run      # Run in foreground and retry until UAD Console is available
 apollobot stop     # Stop background watcher
+apollobot stop --launchd  # Stop the installed macOS LaunchDaemon
 apollobot log      # Show daemon activity
 ```
 
 You can also use `apollobot --help` to see these commands within the terminal
+
+### UAD Console diagnostic scripts
+
+The repository also includes exploratory scripts for inspecting UAD Console's TCP interface. Run them from the repository directory while UAD Console is open:
+
+```bash
+python3 analyze_outputs.py
+python3 discover_cue_mirror.py
+python3 examine_all_outputs.py
+```
+
+- `analyze_outputs.py` inspects known output IDs, their properties, and possible mirror settings.
+- `discover_cue_mirror.py` probes cue and mirror-related command paths. Before running it, set cue 1 to “mirror to S/PDIF” in Console; it will prompt before starting.
+- `examine_all_outputs.py` scans output IDs 0–49 and reports properties that may relate to routing or mirroring.
+
+These scripts print diagnostic results to the terminal and do not change Console settings.
