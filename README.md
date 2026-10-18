@@ -175,7 +175,7 @@ The LaunchDaemon writes output to `~/.apollobot-launchd.log` and errors to `~/.a
 Here are all the commands that are implemented:
 
 ```bash
-apollobot diagram  # Print the audio setup and signal paths; Console can be closed
+apollobot diagram  # Print John's Audio Setup; Console can be closed
 apollobot alt      # Switch to alt monitors
 apollobot main     # Switch to main monitors  
 apollobot toggle   # Toggle between setups

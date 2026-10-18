@@ -765,28 +765,45 @@ class ApolloBot:
             self.socket.close()
         self.connected = False
 
+
+def _print_diagram_block(title, rows) -> None:
+    """Print rows inside a box sized to fit their text."""
+    width = max(len(title) + 1, max(len(row) for row in rows))
+    top_fill = "─" * (width - len(title) - 1)
+    print(f"┌─ {title} {top_fill}┐")
+    for row in rows:
+        print(f"│ {row.ljust(width)} │")
+    print(f"└{'─' * (width + 2)}┘")
+
+
 def print_setup_diagram() -> None:
-    """Print a concise terminal overview of the audio setup."""
-    print("""ApolloBot setup
-===============
-Apollo 8 (TB2 card) --TB2--> adapter --TB3--> CalDigit TS3 --TB3--> MacBook Pro
-Mac system audio --> Console Virtual 1/2
-WiiM coax OUT --> Apollo S/PDIF IN --> Console S/PDIF input
-Console monitor mix --> Apollo Monitor Out --> Focal Shape 65
-Console C2 monitor mix --> Apollo headphone outputs 1 + 2
+    """Print a concise, block-style terminal overview of the audio setup."""
+    print("John's Audio Setup")
+    print()
+    _print_diagram_block("COMPUTER / APOLLO / UAD CONSOLE", [
+        "[Apollo 8 TB2] → [TB2/3 adapter] → [CalDigit TS3] --TB3--> [MacBook Pro]",
+        "[Mac system audio] → [Console Virtual 1/2]",
+        "[WiiM coax OUT] → [Apollo S/PDIF IN] → [Console S/PDIF input]",
+        "[Monitor mix] → [Apollo Monitor Out] → [Focal Shape 65]",
+        "[C2 monitor mix] → [Apollo headphone outputs 1 + 2]",
+        "[ALT button] → [ApolloBot] → [S/PDIF source]",
+        "ALT: monitor mix | MAIN: silent Cue 1",
+        "[Apollo S/PDIF OUT] → [converter] → [WiiM optical IN]",
+    ])
+    print()
+    _print_diagram_block("WiiM ULTRA / ANALOG INPUTS", [
+        "[Rega Planar 3 RS] --Phono/MM--> [WiiM Ultra]",
+        "[Denon DR-M2] --------Line-----> [WiiM Ultra]",
+        "[WiiM Line Out] → [Schiit SYS] → [EL84 power amp]",
+    ])
+    print()
+    _print_diagram_block("SPEAKERS / HEADPHONES", [
+        "[EL84 amp] → [speaker switch]",
+        "    |-- A → [MartinLogan LX16]",
+        "    `-- B → [dummy resistive load] (speaker mute / headphone-only)",
+        "[EL84 amp] → [resistor divider] → [headphone input]",
+    ])
 
-Apollo ALT button --> ApolloBot --> S/PDIF source
-  ALT: monitor mix | MAIN: silent Cue 1
-  Apollo S/PDIF OUT --> coax/optical converter --> WiiM optical IN
-
-Rega Planar 3 RS --phono/MM--\\
-                              +--> WiiM Ultra --line out--> Schiit SYS --> EL84 amp
-Denon DR-M2 --------line------/
-
-EL84 amp --> speaker switch
-  A: MartinLogan LX16
-  B: dummy resistive load (speaker mute / headphone-only)
-EL84 amp --> resistor divider --> headphone input""")
 
 def main():
     parser = argparse.ArgumentParser(
@@ -794,7 +811,7 @@ def main():
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog='''
 Commands:
-  diagram  Print a compact overview of the audio signal paths
+  diagram  Print John's Audio Setup
   alt      Switch to alt monitors (S/PDIF output)
   main     Switch to main monitors (analog outputs)  
   toggle   Toggle between main and alt monitors
