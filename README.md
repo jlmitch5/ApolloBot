@@ -88,18 +88,23 @@ etc.
 
 ### Start automatically at computer startup (macOS)
 
-The included LaunchDaemon starts ApolloBot during system startup, under your account. It runs in the foreground so launchd can supervise it. If UAD Console is not listening on port 4710 yet, ApolloBot waits and retries every 15 seconds.
+The LaunchDaemon starts ApolloBot during system startup, under the account that installs it. It runs in the foreground so launchd can supervise it. If UAD Console is not listening on port 4710 yet, ApolloBot waits and retries every 15 seconds.
 
-Install the job from the repository directory. launchd will load it at the next computer startup:
+From the repository directory, run the installer as your normal account (it will ask for administrator authorization when installing the system job):
 
 ```bash
-sudo install -o root -g wheel -m 644 launchd/com.apollobot.watcher.plist /Library/LaunchDaemons/com.apollobot.watcher.plist
+python3 launchd/install.py
 ```
 
-To load it in the current session, first stop any manually started ApolloBot watcher with `apollobot stop`, then run:
+If you started the watcher manually, stop it first with `python3 apollobot.py stop`.
+
+The installer reads your account, home directory, current checkout path, and active Python executable, then generates and installs the LaunchDaemon plist. This lets the repository work from another username or checkout location without editing a plist by hand. Use `python3 launchd/install.py --dry-run` to inspect the generated plist without installing it.
+
+To update or reinstall the job, run the installer again. It unloads an existing copy before replacing it. Check or restart the job with:
 
 ```bash
-sudo launchctl bootstrap system /Library/LaunchDaemons/com.apollobot.watcher.plist
+sudo launchctl print system/com.apollobot.watcher
+sudo launchctl kickstart -k system/com.apollobot.watcher
 ```
 
 Check or restart it with:
@@ -110,8 +115,6 @@ sudo launchctl kickstart -k system/com.apollobot.watcher
 ```
 
 The LaunchDaemon writes output to `~/.apollobot-launchd.log` and errors to `~/.apollobot-launchd-error.log`. To stop it, run `sudo launchctl bootout system/com.apollobot.watcher`; to remove automatic startup, stop it and delete `/Library/LaunchDaemons/com.apollobot.watcher.plist`.
-
-The plist records this checkout's path and the current Python installation. If you move the repository or Python installation, update the corresponding paths in the plist before reinstalling it.
 
 ### Usage
 
