@@ -1,0 +1,41 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>com.apollobot.watcher</string>
+
+    <key>ProgramArguments</key>
+    <array>
+        <string>/opt/homebrew/bin/python3</string>
+        <string>/Users/jmitchel/workspaces/ApolloBot/apollobot.py</string>
+        <string>run</string>
+    </array>
+
+    <key>WorkingDirectory</key>
+    <string>/Users/jmitchel/workspaces/ApolloBot</string>
+    <key>UserName</key>
+    <string>jmitchel</string>
+    <key>RunAtLoad</key>
+    <true/>
+    <key>KeepAlive</key>
+    <true/>
+    <key>ThrottleInterval</key>
+    <integer>30</integer>
+
+    <key>EnvironmentVariables</key>
+    <dict>
+        <key>HOME</key>
+        <string>/Users/jmitchel</string>
+        <key>PATH</key>
+        <string>/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin</string>
+        <key>PYTHONUNBUFFERED</key>
+        <string>1</string>
+    </dict>
+
+    <key>StandardOutPath</key>
+    <string>/Users/jmitchel/.apollobot-launchd.log</string>
+    <key>StandardErrorPath</key>
+    <string>/Users/jmitchel/.apollobot-launchd-error.log</string>
+</dict>
+</plist>

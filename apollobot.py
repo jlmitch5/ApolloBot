@@ -28,18 +28,26 @@ class ApolloBot:
         self.pid_file = os.path.expanduser("~/.apollobot.pid")
         self.log_file = os.path.expanduser("~/.apollobot.log")
         
-    def connect(self) -> bool:
+    def connect(self, quiet: bool = False) -> bool:
         """Connect to UAD Console"""
+        if self.socket:
+            self.socket.close()
+        self.socket = None
+        self.connected = False
+
+        sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        sock.settimeout(3)
         try:
-            self.socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-            self.socket.settimeout(3)
-            self.socket.connect((self.host, self.port))
+            sock.connect((self.host, self.port))
+            self.socket = sock
             self.connected = True
             print(f"✓ Connected to UAD Console at {self.host}:{self.port}")
             return True
         except Exception as e:
-            print(f"✗ Connection failed: {e}")
-            print("  Make sure UAD Console is running")
+            sock.close()
+            if not quiet:
+                print(f"✗ Connection failed: {e}")
+                print("  Make sure UAD Console is running")
             return False
     
     def send_command(self, command: str) -> bool:
@@ -265,10 +273,18 @@ class ApolloBot:
     
     def status(self) -> None:
         """Show current monitor status"""
-        alt_state = self.get_alt_monitor_state()
-        cue_state = self.get_cue_mix_state()
+        connected = self.connected or self.connect(quiet=True)
+        if connected:
+            alt_state = self.get_alt_monitor_state()
+            cue_state = self.get_cue_mix_state()
+        else:
+            alt_state = None
+            cue_state = None
         
         print("📊 Current Monitor Status:")
+
+        if not connected:
+            print(f"   ⚠️  UAD Console unavailable at {self.host}:{self.port}")
         
         if alt_state is None:
             print("   ❓ Cannot determine Alt Monitor state")
@@ -299,7 +315,11 @@ class ApolloBot:
         if running:
             print(f"   ✅ Watcher running in background (PID: {pid})")
         else:
-            print("   ⏹️  Watcher not running")
+            launchd_pid = self.launchd_daemon_pid()
+            if launchd_pid is not None:
+                print(f"   ✅ Watcher running under launchd (PID: {launchd_pid})")
+            else:
+                print("   ⏹️  Watcher not running")
     
     def watch_for_alt_changes(self) -> None:
         """Watch for manual Alt Monitor button presses and sync cue mix"""
@@ -371,6 +391,43 @@ class ApolloBot:
         except Exception as e:
             print(f"\n❌ Watch error: {e}")
             self.watching = False
+
+    def run_foreground(self, retry_interval: int = 15) -> None:
+        """Run the watcher in the foreground, retrying until Console is available."""
+        print("🤖 ApolloBot launchd watcher started")
+        self.watching = True
+        waiting_for_console = False
+
+        try:
+            while self.watching:
+                if not self.connect(quiet=True):
+                    if not waiting_for_console:
+                        print(
+                            f"UAD Console is not available at {self.host}:{self.port}; "
+                            f"retrying every {retry_interval} seconds"
+                        )
+                        waiting_for_console = True
+                    time.sleep(retry_interval)
+                    continue
+
+                if waiting_for_console:
+                    print("UAD Console is available; starting watcher")
+                    waiting_for_console = False
+
+                self.watch_for_alt_changes()
+                self.close()
+
+                if self.watching:
+                    print(
+                        f"UAD Console disconnected; retrying in {retry_interval} seconds"
+                    )
+                    waiting_for_console = True
+                    time.sleep(retry_interval)
+        except KeyboardInterrupt:
+            print("\n👋 ApolloBot watcher stopped")
+        finally:
+            self.watching = False
+            self.close()
     
     def is_daemon_running(self) -> tuple[bool, Optional[int]]:
         """Check if watcher daemon is running"""
@@ -391,12 +448,50 @@ class ApolloBot:
             except OSError:
                 pass
             return False, None
+
+    def launchd_daemon_pid(self) -> Optional[int]:
+        """Return the PID when the macOS launchd watcher is running."""
+        if sys.platform != 'darwin':
+            return None
+
+        try:
+            result = subprocess.run(
+                ['launchctl', 'print', 'system/com.apollobot.watcher'],
+                capture_output=True,
+                text=True,
+                timeout=2,
+                check=False,
+            )
+        except (OSError, subprocess.TimeoutExpired):
+            return None
+
+        if result.returncode != 0:
+            return None
+
+        is_running = False
+        pid = None
+        for line in result.stdout.splitlines():
+            field = line.strip()
+            if field == 'state = running':
+                is_running = True
+            elif pid is None and field.startswith('pid = '):
+                try:
+                    pid = int(field.removeprefix('pid = '))
+                except ValueError:
+                    pass
+
+        return pid if is_running else None
     
     def start_daemon(self) -> bool:
         """Start watcher in background daemon mode"""
         running, pid = self.is_daemon_running()
         if running:
             print(f"✓ ApolloBot watcher already running (PID: {pid})")
+            return True
+
+        launchd_pid = self.launchd_daemon_pid()
+        if launchd_pid is not None:
+            print(f"✓ ApolloBot watcher already running under launchd (PID: {launchd_pid})")
             return True
             
         # Fork to background
@@ -460,6 +555,11 @@ class ApolloBot:
         """Stop watcher daemon"""
         running, pid = self.is_daemon_running()
         if not running:
+            launchd_pid = self.launchd_daemon_pid()
+            if launchd_pid is not None:
+                print("✓ ApolloBot watcher is managed by launchd")
+                print("  Stop it with: sudo launchctl bootout system/com.apollobot.watcher")
+                return False
             print("✓ ApolloBot watcher is not running")
             return True
             
@@ -525,18 +625,38 @@ Commands:
   toggle   Toggle between main and alt monitors
   status   Show current monitor and daemon status
   start    Start background watcher daemon
+  run      Run watcher in foreground and retry until UAD Console is available
   stop     Stop background watcher daemon
   log      Show recent daemon log entries
         ''')
-    parser.add_argument('action', choices=['alt', 'main', 'toggle', 'status', 'start', 'stop', 'log'], 
+    parser.add_argument('action', choices=['alt', 'main', 'toggle', 'status', 'start', 'run', 'stop', 'log'],
                        help='Monitor action to perform')
     parser.add_argument('--host', default='127.0.0.1', help='UAD Console host (default: 127.0.0.1)')
     parser.add_argument('--port', type=int, default=4710, help='UAD Console port (default: 4710)')
     
     args = parser.parse_args()
+
+    bot = ApolloBot(args.host, args.port)
+
+    # launchd owns this long-running process, so bypass the one-shot availability
+    # check and the fork-based manual daemon path.
+    if args.action == 'run':
+        try:
+            bot.run_foreground()
+        finally:
+            bot.close()
+        return
     
     print("🤖 ApolloBot - UAD Console Monitor Automation")
     print("=" * 50)
+
+    # Status must still report launchd while the watcher is waiting for UAD Console.
+    if args.action == 'status':
+        try:
+            bot.status()
+        finally:
+            bot.close()
+        return
     
     # Check if UAD Console is running
     try:
@@ -552,8 +672,6 @@ Commands:
     except:
         print("✗ Cannot check UAD Console status")
         sys.exit(1)
-    
-    bot = ApolloBot(args.host, args.port)
     
     try:
         if not bot.connect():

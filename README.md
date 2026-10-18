@@ -86,6 +86,33 @@ apollobot start
 ```
 etc.
 
+### Start automatically at computer startup (macOS)
+
+The included LaunchDaemon starts ApolloBot during system startup, under your account. It runs in the foreground so launchd can supervise it. If UAD Console is not listening on port 4710 yet, ApolloBot waits and retries every 15 seconds.
+
+Install the job from the repository directory. launchd will load it at the next computer startup:
+
+```bash
+sudo install -o root -g wheel -m 644 launchd/com.apollobot.watcher.plist /Library/LaunchDaemons/com.apollobot.watcher.plist
+```
+
+To load it in the current session, first stop any manually started ApolloBot watcher with `apollobot stop`, then run:
+
+```bash
+sudo launchctl bootstrap system /Library/LaunchDaemons/com.apollobot.watcher.plist
+```
+
+Check or restart it with:
+
+```bash
+sudo launchctl print system/com.apollobot.watcher
+sudo launchctl kickstart -k system/com.apollobot.watcher
+```
+
+The LaunchDaemon writes output to `~/.apollobot-launchd.log` and errors to `~/.apollobot-launchd-error.log`. To stop it, run `sudo launchctl bootout system/com.apollobot.watcher`; to remove automatic startup, stop it and delete `/Library/LaunchDaemons/com.apollobot.watcher.plist`.
+
+The plist records this checkout's path and the current Python installation. If you move the repository or Python installation, update the corresponding paths in the plist before reinstalling it.
+
 ### Usage
 
 Here are all the commands that are implemented:
@@ -101,3 +128,19 @@ apollobot log      # Show daemon activity
 ```
 
 You can also use `apollobot --help` to see these commands within the terminal
+
+### UAD Console diagnostic scripts
+
+The repository also includes exploratory scripts for inspecting UAD Console's TCP interface. Run them from the repository directory while UAD Console is open:
+
+```bash
+python3 analyze_outputs.py
+python3 discover_cue_mirror.py
+python3 examine_all_outputs.py
+```
+
+- `analyze_outputs.py` inspects known output IDs, their properties, and possible mirror settings.
+- `discover_cue_mirror.py` probes cue and mirror-related command paths. Before running it, set cue 1 to “mirror to S/PDIF” in Console; it will prompt before starting.
+- `examine_all_outputs.py` scans output IDs 0–49 and reports properties that may relate to routing or mirroring.
+
+These scripts print diagnostic results to the terminal and do not change Console settings.
