@@ -100,21 +100,11 @@ If you started the watcher manually, stop it first with `python3 apollobot.py st
 
 The installer reads your account, home directory, current checkout path, and active Python executable, then generates and installs the LaunchDaemon plist. This lets the repository work from another username or checkout location without editing a plist by hand. Use `python3 launchd/install.py --dry-run` to inspect the generated plist without installing it.
 
-To update or reinstall the job, run the installer again. It unloads an existing copy before replacing it. Check or restart the job with:
+To update or reinstall the job, run the installer again. It unloads an existing copy before replacing it. Check its state with `apollobot status`.
 
-```bash
-sudo launchctl print system/com.apollobot.watcher
-sudo launchctl kickstart -k system/com.apollobot.watcher
-```
+After installation, `apollobot start --launchd` loads the installed plist if the service is not currently loaded, starts it if it is loaded but stopped, and reports its PID if it is already running. It does not force-restart a live watcher, and it works while UAD Console is still starting.
 
-Check or restart it with:
-
-```bash
-sudo launchctl print system/com.apollobot.watcher
-sudo launchctl kickstart -k system/com.apollobot.watcher
-```
-
-The LaunchDaemon writes output to `~/.apollobot-launchd.log` and errors to `~/.apollobot-launchd-error.log`. To stop it, run `sudo launchctl bootout system/com.apollobot.watcher`; to remove automatic startup, stop it and delete `/Library/LaunchDaemons/com.apollobot.watcher.plist`.
+The LaunchDaemon writes output to `~/.apollobot-launchd.log` and errors to `~/.apollobot-launchd-error.log`. Run `apollobot stop --launchd` to stop and unload it for the current boot; its plist remains installed so it will start automatically at the next system startup. To remove automatic startup, stop it and delete `/Library/LaunchDaemons/com.apollobot.watcher.plist`.
 
 ### Usage
 
@@ -126,7 +116,9 @@ apollobot main     # Switch to main monitors
 apollobot toggle   # Toggle between setups
 apollobot status   # Show current state
 apollobot start    # Start background watcher daemon
+apollobot start --launchd  # Start the installed macOS LaunchDaemon
 apollobot stop     # Stop background watcher
+apollobot stop --launchd  # Stop the installed macOS LaunchDaemon
 apollobot log      # Show daemon activity
 ```
 

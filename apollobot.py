@@ -16,6 +16,10 @@ import signal
 import subprocess
 from typing import Optional
 
+
+LAUNCHD_TARGET = 'system/com.apollobot.watcher'
+LAUNCHD_PLIST = '/Library/LaunchDaemons/com.apollobot.watcher.plist'
+
 class ApolloBot:
     def __init__(self, host='127.0.0.1', port=4710):
         self.host = host
@@ -449,24 +453,24 @@ class ApolloBot:
                 pass
             return False, None
 
-    def launchd_daemon_pid(self) -> Optional[int]:
-        """Return the PID when the macOS launchd watcher is running."""
+    def launchd_service_info(self) -> tuple[Optional[bool], Optional[int]]:
+        """Return whether the macOS LaunchDaemon is loaded and its running PID."""
         if sys.platform != 'darwin':
-            return None
+            return None, None
 
         try:
             result = subprocess.run(
-                ['launchctl', 'print', 'system/com.apollobot.watcher'],
+                ['launchctl', 'print', LAUNCHD_TARGET],
                 capture_output=True,
                 text=True,
                 timeout=2,
                 check=False,
             )
         except (OSError, subprocess.TimeoutExpired):
-            return None
+            return None, None
 
         if result.returncode != 0:
-            return None
+            return False, None
 
         is_running = False
         pid = None
@@ -480,7 +484,154 @@ class ApolloBot:
                 except ValueError:
                     pass
 
-        return pid if is_running else None
+        return True, pid if is_running else None
+
+    def launchd_daemon_pid(self) -> Optional[int]:
+        """Return the PID when the macOS launchd watcher is running."""
+        loaded, pid = self.launchd_service_info()
+        return pid if loaded is True else None
+
+    def start_launchd(self) -> bool:
+        """Start the installed macOS LaunchDaemon without restarting a live watcher."""
+        if sys.platform != 'darwin':
+            print("✗ The --launchd option is available only on macOS")
+            return False
+
+        loaded, pid = self.launchd_service_info()
+        if loaded is None:
+            print("✗ Could not query launchd for ApolloBot's service state")
+            return False
+        needs_bootstrap = loaded is False
+        if needs_bootstrap and not os.path.isfile(LAUNCHD_PLIST):
+            print("✗ ApolloBot's LaunchDaemon plist is not installed")
+            print("  Install it with: python3 launchd/install.py")
+            return False
+        if pid is not None:
+            print(f"✓ ApolloBot watcher already running under launchd (PID: {pid})")
+            return True
+
+        try:
+            # Make the authorization prompt explicit before starting launchctl.
+            authorization = subprocess.run(['sudo', '-v'], check=False)
+            if authorization.returncode != 0:
+                print("✗ Administrator authorization failed")
+                return False
+
+            if needs_bootstrap:
+                print("Loading ApolloBot through launchd...")
+                try:
+                    bootstrap = subprocess.run(
+                        ['sudo', 'launchctl', 'bootstrap', 'system', LAUNCHD_PLIST],
+                        capture_output=True,
+                        text=True,
+                        timeout=10,
+                        check=False,
+                    )
+                except subprocess.TimeoutExpired:
+                    loaded, pid = self.launchd_service_info()
+                    if loaded is not True:
+                        print("✗ launchctl did not load the service within 10 seconds")
+                        print("  Check its state with: apollobot status")
+                        return False
+                else:
+                    if bootstrap.returncode != 0:
+                        loaded, pid = self.launchd_service_info()
+                        if loaded is not True:
+                            print("✗ launchctl could not load ApolloBot")
+                            detail = bootstrap.stderr.strip()
+                            if detail:
+                                print(f"  {detail}")
+                            print("  Check its state with: apollobot status")
+                            return False
+                    else:
+                        loaded, pid = self.launchd_service_info()
+                        if loaded is not True:
+                            print("✗ launchctl returned, but ApolloBot is not loaded")
+                            print("  Check its state with: apollobot status")
+                            return False
+
+                if pid is not None:
+                    print(f"✓ ApolloBot watcher running under launchd (PID: {pid})")
+                    return True
+
+            print("Starting ApolloBot through launchd...")
+            result = subprocess.run(
+                ['sudo', 'launchctl', 'kickstart', LAUNCHD_TARGET],
+                timeout=10,
+                check=False,
+            )
+        except subprocess.TimeoutExpired:
+            loaded, pid = self.launchd_service_info()
+            if loaded is True and pid is not None:
+                print(f"✓ ApolloBot watcher running under launchd (PID: {pid})")
+                return True
+            print("✗ launchctl did not respond within 10 seconds")
+            print("  Check its state with: apollobot status")
+            return False
+        except OSError as error:
+            print(f"✗ Could not start the LaunchDaemon: {error}")
+            return False
+
+        if result.returncode != 0:
+            print("✗ launchctl could not start ApolloBot")
+            return False
+
+        loaded, pid = self.launchd_service_info()
+        if loaded is True and pid is not None:
+            print(f"✓ ApolloBot watcher running under launchd (PID: {pid})")
+        else:
+            print("✓ LaunchDaemon start requested; check status with: apollobot status")
+        return True
+
+    def stop_launchd(self) -> bool:
+        """Stop and unload the installed macOS LaunchDaemon for this boot."""
+        if sys.platform != 'darwin':
+            print("✗ The --launchd option is available only on macOS")
+            return False
+
+        loaded, _ = self.launchd_service_info()
+        if loaded is None:
+            print("✗ Could not query launchd for ApolloBot's service state")
+            return False
+        if loaded is False:
+            print("✓ ApolloBot LaunchDaemon is already stopped")
+            return True
+
+        try:
+            # Request authorization separately so sudo can prompt in this terminal.
+            authorization = subprocess.run(['sudo', '-v'], check=False)
+            if authorization.returncode != 0:
+                print("✗ Administrator authorization failed")
+                return False
+
+            print("Stopping ApolloBot through launchd...")
+            result = subprocess.run(
+                ['sudo', 'launchctl', 'bootout', LAUNCHD_TARGET],
+                timeout=10,
+                check=False,
+            )
+        except subprocess.TimeoutExpired:
+            loaded, _ = self.launchd_service_info()
+            if loaded is False:
+                print("✓ ApolloBot LaunchDaemon stopped")
+                return True
+            print("✗ launchctl did not stop the service within 10 seconds")
+            print("  Check its state with: apollobot status")
+            return False
+        except OSError as error:
+            print(f"✗ Could not stop the LaunchDaemon: {error}")
+            return False
+
+        loaded, _ = self.launchd_service_info()
+        if loaded is False:
+            print("✓ ApolloBot LaunchDaemon stopped")
+            return True
+        if result.returncode != 0:
+            print("✗ launchctl could not stop ApolloBot")
+        else:
+            print("✗ launchctl returned, but ApolloBot is still loaded")
+        print("  Check its state with: apollobot status")
+        return False
     
     def start_daemon(self) -> bool:
         """Start watcher in background daemon mode"""
@@ -558,7 +709,7 @@ class ApolloBot:
             launchd_pid = self.launchd_daemon_pid()
             if launchd_pid is not None:
                 print("✓ ApolloBot watcher is managed by launchd")
-                print("  Stop it with: sudo launchctl bootout system/com.apollobot.watcher")
+                print("  Stop it with: apollobot stop --launchd")
                 return False
             print("✓ ApolloBot watcher is not running")
             return True
@@ -625,16 +776,25 @@ Commands:
   toggle   Toggle between main and alt monitors
   status   Show current monitor and daemon status
   start    Start background watcher daemon
+  start --launchd  Start the watcher through the installed macOS LaunchDaemon
   run      Run watcher in foreground and retry until UAD Console is available
   stop     Stop background watcher daemon
+  stop --launchd  Stop the watcher through the installed macOS LaunchDaemon
   log      Show recent daemon log entries
         ''')
     parser.add_argument('action', choices=['alt', 'main', 'toggle', 'status', 'start', 'run', 'stop', 'log'],
                        help='Monitor action to perform')
     parser.add_argument('--host', default='127.0.0.1', help='UAD Console host (default: 127.0.0.1)')
     parser.add_argument('--port', type=int, default=4710, help='UAD Console port (default: 4710)')
+    parser.add_argument(
+        '--launchd',
+        action='store_true',
+        help='start or stop the installed macOS LaunchDaemon (use with start or stop)',
+    )
     
     args = parser.parse_args()
+    if args.launchd and args.action not in ('start', 'stop'):
+        parser.error('--launchd can only be used with the start or stop action')
 
     bot = ApolloBot(args.host, args.port)
 
@@ -649,6 +809,15 @@ Commands:
     
     print("🤖 ApolloBot - UAD Console Monitor Automation")
     print("=" * 50)
+
+    if args.action in ('start', 'stop') and args.launchd:
+        try:
+            success = bot.start_launchd() if args.action == 'start' else bot.stop_launchd()
+        finally:
+            bot.close()
+        if not success:
+            sys.exit(1)
+        return
 
     # Status must still report launchd while the watcher is waiting for UAD Console.
     if args.action == 'status':

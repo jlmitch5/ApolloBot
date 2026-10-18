@@ -92,7 +92,7 @@ def install() -> None:
     print(f"Installed {LABEL} for {pwd.getpwuid(os.getuid()).pw_name}.")
     print(f"Repository: {REPOSITORY}")
     print(f"Python: {os.path.abspath(sys.executable)}")
-    print(f"Check it with: sudo launchctl print system/{LABEL}")
+    print("Check it with: apollobot status")
 
 
 def main() -> int:
