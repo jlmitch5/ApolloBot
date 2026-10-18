@@ -504,7 +504,7 @@ class ApolloBot:
         needs_bootstrap = loaded is False
         if needs_bootstrap and not os.path.isfile(LAUNCHD_PLIST):
             print("✗ ApolloBot's LaunchDaemon plist is not installed")
-            print("  Install it with: python3 launchd/install.py")
+            print("  Install it with: python3 install_launchd.py")
             return False
         if pid is not None:
             print(f"✓ ApolloBot watcher already running under launchd (PID: {pid})")

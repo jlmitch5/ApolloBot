@@ -93,12 +93,12 @@ The LaunchDaemon starts ApolloBot during system startup, under the account that 
 From the repository directory, run the installer as your normal account (it will ask for administrator authorization when installing the system job):
 
 ```bash
-python3 launchd/install.py
+python3 install_launchd.py
 ```
 
 If you started the watcher manually, stop it first with `python3 apollobot.py stop`.
 
-The installer reads your account, home directory, current checkout path, and active Python executable, then generates and installs the LaunchDaemon plist. This lets the repository work from another username or checkout location without editing a plist by hand. Use `python3 launchd/install.py --dry-run` to inspect the generated plist without installing it.
+The installer reads your account, home directory, current checkout path, and active Python executable, then generates and installs the LaunchDaemon plist. This lets the repository work from another username or checkout location without editing a plist by hand. Use `python3 install_launchd.py --dry-run` to inspect the generated plist without installing it.
 
 To update or reinstall the job, run the installer again. It unloads an existing copy before replacing it. Check its state with `apollobot status`.
 

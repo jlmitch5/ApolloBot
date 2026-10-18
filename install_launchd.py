@@ -16,7 +16,7 @@ from pathlib import Path
 
 LABEL = "com.apollobot.watcher"
 PLIST_PATH = Path("/Library/LaunchDaemons") / f"{LABEL}.plist"
-REPOSITORY = Path(__file__).resolve().parent.parent
+REPOSITORY = Path(__file__).resolve().parent
 APP_SCRIPT = REPOSITORY / "apollobot.py"
 
 
