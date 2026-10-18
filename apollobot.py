@@ -765,12 +765,36 @@ class ApolloBot:
             self.socket.close()
         self.connected = False
 
+def print_setup_diagram() -> None:
+    """Print a concise terminal overview of the audio setup."""
+    print("""ApolloBot setup
+===============
+Apollo 8 (TB2 card) --TB2--> adapter --TB3--> CalDigit TS3 --TB3--> MacBook Pro
+Mac system audio --> Console Virtual 1/2
+WiiM coax OUT --> Apollo S/PDIF IN --> Console S/PDIF input
+Console monitor mix --> Apollo Monitor Out --> Focal Shape 65
+Console C2 monitor mix --> Apollo headphone outputs 1 + 2
+
+Apollo ALT button --> ApolloBot --> S/PDIF source
+  ALT: monitor mix | MAIN: silent Cue 1
+  Apollo S/PDIF OUT --> coax/optical converter --> WiiM optical IN
+
+Rega Planar 3 RS --phono/MM--\\
+                              +--> WiiM Ultra --line out--> Schiit SYS --> EL84 amp
+Denon DR-M2 --------line------/
+
+EL84 amp --> speaker switch
+  A: MartinLogan LX16
+  B: dummy resistive load (speaker mute / headphone-only)
+EL84 amp --> resistor divider --> headphone input""")
+
 def main():
     parser = argparse.ArgumentParser(
         description='ApolloBot - UAD Console Alt Monitor Automation',
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog='''
 Commands:
+  diagram  Print a compact overview of the audio signal paths
   alt      Switch to alt monitors (S/PDIF output)
   main     Switch to main monitors (analog outputs)  
   toggle   Toggle between main and alt monitors
@@ -782,8 +806,8 @@ Commands:
   stop --launchd  Stop the watcher through the installed macOS LaunchDaemon
   log      Show recent daemon log entries
         ''')
-    parser.add_argument('action', choices=['alt', 'main', 'toggle', 'status', 'start', 'run', 'stop', 'log'],
-                       help='Monitor action to perform')
+    parser.add_argument('action', choices=['diagram', 'alt', 'main', 'toggle', 'status', 'start', 'run', 'stop', 'log'],
+                       help='Command to run')
     parser.add_argument('--host', default='127.0.0.1', help='UAD Console host (default: 127.0.0.1)')
     parser.add_argument('--port', type=int, default=4710, help='UAD Console port (default: 4710)')
     parser.add_argument(
@@ -795,6 +819,10 @@ Commands:
     args = parser.parse_args()
     if args.launchd and args.action not in ('start', 'stop'):
         parser.error('--launchd can only be used with the start or stop action')
+
+    if args.action == 'diagram':
+        print_setup_diagram()
+        return
 
     bot = ApolloBot(args.host, args.port)
 
