@@ -78,8 +78,9 @@ flowchart LR
 The Apollo's front-panel **ALT** button is the control for switching the digital WiiM/amp system. ApolloBot follows the ALT state and changes the Apollo's S/PDIF output source: ALT selects the monitor mix, while the main-monitor state selects Cue 1, which is configured to carry silence. This makes Cue 1 the silent state for the digital alternate path. The Apollo's analog ALT 1 outputs remain unused; the actual alternate speakers are driven by the WiiM and the separate power amp.
 
 ## Software Setup
-- **macOS**: 15.6.1 (Sequoia)
-- **UAD Console**: 1.2.6
+- **macOS**: 26.7.1 (build 25G241)
+- **UAD Console**: 1.3.1 (bundle build 1152)
+- **Python**: 3.12.8
 
 I have no way of testing on windows.  If you'd like to help me out here and test that and help me modify things to work, I'd appreciate the help!
 
@@ -102,7 +103,7 @@ To switch back to main monitors:
 It was also entirely vibe coded using claude code.
 
 ## Technology Stack
-- **Language**: Python 3 (standard library only...I specifically tested with 3.12.8)
+- **Language**: Python 3 (standard library only)
 - **Protocol**: Raw TCP sockets to UAD Console
 - **Deployment**: Single executable file with global CLI access
 
